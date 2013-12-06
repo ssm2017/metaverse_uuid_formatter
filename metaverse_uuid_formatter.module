@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * @package    metaverse_uuid_formatter
+ * @copyright Copyright (C) 2013 Wene - ssm2017 Binder ( S.Massiaux ). All rights reserved.
+ * @license   GNU/GPL, http://www.gnu.org/licenses/gpl-2.0.html
+ * metaverse_uuid_formatter is free software. This version may have been modified pursuant
+ * to the GNU General Public License, and as distributed it includes or
+ * is derivative of works licensed under the GNU General Public License or
+ * other free or open source software licenses.
+ */
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function metaverse_uuid_formatter_field_formatter_info() {
+  return array(
+    'metaverse_uuid_formatter_simple_user_formatter' => array(
+      'label' => t('Simple text-based user name formatter'),
+      'field types' => array('uuid_field'),
+    ),
+		'metaverse_uuid_formatter_user_link_formatter' => array(
+      'label' => t('Link to user formatter'),
+      'field types' => array('uuid_field'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function metaverse_uuid_formatter_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  switch ($display['type']) {
+    // This formatter simply outputs the user name as text.
+    case 'metaverse_uuid_formatter_simple_user_formatter':
+			return metaverse_uuid_formatter_format($items);
+			break;
+		// This formatter outputs the user name as a link to the user profile.
+		case 'metaverse_uuid_formatter_user_link_formatter':
+			return metaverse_uuid_formatter_format($items, TRUE);
+			break;
+  }
+}
+
+function metaverse_uuid_formatter_format($items, $link = FALSE) {
+	$element = array();
+	foreach ($items as $delta => $item) {
+		$user = metaverse_uuid_formatter_get_user($item['uuid_field']);
+		if (is_null($user)) {
+			// return the default format as a simple text
+			$value = $item['uuid_field'];
+			if ($item['extern'] != '') {
+				$value .= ' (' . $item['extern'] . ')';
+			}
+			$element[$delta] = array(
+				'#type' => 'html_tag',
+				'#tag' => 'div',
+				'#value' => $value,
+			);
+		}
+		else {
+			if ($link) {
+				$element[$delta] = array(
+					'#type' => 'link',
+					'#title' => $user->name,
+					'#href' => 'user/'.$user->uid,
+				);
+			}
+			else {
+				$element[$delta] = array(
+					'#type' => 'html_tag',
+					'#tag' => 'div',
+					'#value' => $user->name,
+				);
+			}
+		}
+	}
+	return $element;
+}
+
+function metaverse_uuid_formatter_get_user($uuid) {
+	if (module_exists('d4os_ui_users')) {
+		// get the uid of the terminal owner
+		$uid = db_query("SELECT uid FROM {d4os_ui_users} WHERE UUID = :uuid", array(':uuid' => $uuid))->fetchField();
+		if ($uid !== FALSE && !is_null($uid)) {
+			$user = user_load($uid);
+		}
+	}
+	else if (module_exists('metaverse_user')) {
+		$query = new EntityFieldQuery();
+		$entities = $query->entityCondition('entity_type', 'user')
+				->fieldCondition('field_mu_user_uuid', 'uuid_field', $uuid)
+				->execute();
+		if (isset($entities['user'])) {
+			reset($entities['user']);
+			$user = user_load(key($entities['user']));
+		}
+	}
+	return (isset($user) && is_object($user)) ? $user : NULL;
+}
+
+function metaverse_uuid_formatter_default($delta, $item) {
+	$element = array();
+	$value = $item['uuid_field'];
+	if ($item['extern'] != '') {
+		$value .= ' (' . $item['extern'] . ')';
+	}
+	$element[$delta] = array(
+		'#type' => 'html_tag',
+		'#tag' => 'div',
+		'#value' => $value,
+	);
+	return $element;
+}

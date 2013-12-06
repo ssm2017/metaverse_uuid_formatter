@@ -1,0 +1,5 @@
+name = Metaverse uuid formatter
+description = "Formatter for the uuid field module to be able to use a user name linked by uuid."
+package = Metaverse
+dependencies[] = uuid_field
+core = 7.x
